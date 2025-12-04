@@ -1,2 +1,3 @@
 /.venv
 /chembl_for_agents.csv
+/light_chembl_smiles_30.csv
