@@ -1,3 +1,5 @@
 /.venv
 /chembl_for_agents.csv
 /light_chembl_smiles_30.csv
+/dict_idx2frag.pt
+/tree_rnn-vae.pt
