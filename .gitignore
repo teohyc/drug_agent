@@ -4,3 +4,5 @@
 /dict_idx2frag.pt
 /tree_rnn-vae.pt
 /__pycache__
+/prop_gnn.pt
+/scaler_for_gnn.pkl
