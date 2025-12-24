@@ -75,7 +75,7 @@ def predict_properties(smiles, model, scaler, device="cuda"):
     }
 
 #main
-def predict_properties():
+def predict():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = torch.load("prop_gnn.pt", weights_only=False, map_location=device)
