@@ -52,7 +52,7 @@ def get_dummy_atom_indices(mol):
     return [atom.GetIdx() for atom in mol.GetAtoms() if atom.GetSymbol() == '*']
 
 def get_linear_connection_pairs(mols):
-    """Connect last dummy atom of mol i -> first dummy atom of mol i+1"""
+    """Connect last dummy atom of mol i to first dummy atom of mol i+1"""
     pairs = []
     for i in range(len(mols)-1):
         idx_last_i = get_dummy_atom_indices(mols[i])[-1]
@@ -111,26 +111,27 @@ def replace_dummy_with_carbon(smiles):
     
 
 #main
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def generate_candidate_mol():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-idx2frag = torch.load("dict_idx2frag.pt")      # {index: fragment_string}
-vocab_size = len(idx2frag)
+    idx2frag = torch.load("dict_idx2frag.pt")      # {index: fragment_string}
+    vocab_size = len(idx2frag)
 
-model = torch.load("tree_rnn-vae.pt", weights_only=False, map_location=device)
+    model = torch.load("tree_rnn-vae.pt", weights_only=False, map_location=device)
 
-model.eval()
-z = torch.randn(6, model.decoder.z_to_hidden.in_features, device=device)
-sampled_indices = model.sample_from_z(z, sos_idx=None, max_len=20)  # [5, 12]
+    model.eval()
+    z = torch.randn(6, model.decoder.z_to_hidden.in_features, device=device)
+    sampled_indices = model.sample_from_z(z, sos_idx=None, max_len=20)  
 
-smiles_out = decode_fragments_to_smiles(sampled_indices, idx2frag)
+    smiles_out = decode_fragments_to_smiles(sampled_indices, idx2frag)
 
-smiles_list = []
-for mol in smiles_out:
-    smiles = process_one_molecule(mol)
-    smiles_list.append(smiles)
+    smiles_list = []
+    for mol in smiles_out:
+        smiles = process_one_molecule(mol)
+        smiles_list.append(smiles)
 
-smiles_list = [replace_dummy_with_carbon(s) for s in smiles_list]
-print(smiles_list)
-mols = [Chem.MolFromSmiles(s) for s in smiles_list]
-img = Draw.MolsToGridImage(mols, molsPerRow=2, subImgSize=(600,600), legends=smiles_list)
-img.show()
+    smiles_list = [replace_dummy_with_carbon(s) for s in smiles_list]
+    print(smiles_list)
+    mols = [Chem.MolFromSmiles(s) for s in smiles_list]
+    img = Draw.MolsToGridImage(mols, molsPerRow=2, subImgSize=(600,600), legends=smiles_list)
+    img.show()

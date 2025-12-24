@@ -75,15 +75,16 @@ def predict_properties(smiles, model, scaler, device="cuda"):
     }
 
 #main
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def predict_properties():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-model = torch.load("prop_gnn.pt", weights_only=False, map_location=device)
-scaler = joblib.load("scaler_for_gnn.pkl")
+    model = torch.load("prop_gnn.pt", weights_only=False, map_location=device)
+    scaler = joblib.load("scaler_for_gnn.pkl")
 
-test_smiles = ["NNc1nnc(Cc2ccncc2)c2ccccc12", "C[C@@H]1C[C@H]2[C@@H]3CCC4=CC(=O)C=C[C@]4(C)[C@@]3(F)[C@@H](O)C[C@]2(C)[C@@]1(C)C(=O)CO"]
+    test_smiles = ["NNc1nnc(Cc2ccncc2)c2ccccc12", "C[C@@H]1C[C@H]2[C@@H]3CCC4=CC(=O)C=C[C@]4(C)[C@@]3(F)[C@@H](O)C[C@]2(C)[C@@]1(C)C(=O)CO"]
 
-for s in test_smiles:
-    prop = predict_properties(s, model, scaler)
+    for s in test_smiles:
+        prop = predict_properties(s, model, scaler)
 
-    print(f"SMILES: {s}")
-    print(f"""Properties Predicted: \n logP = {prop["logP"]} \n Molecular Weight = {prop["MW"]} \n Hydrogen Bond Donor = {prop["HBD"]} \n Hydrogen Bond Acceptor = {prop["HBA"]}""")
+        print(f"SMILES: {s}")
+        print(f"""Properties Predicted: \n logP = {prop["logP"]} \n Molecular Weight = {prop["MW"]} \n Hydrogen Bond Donor = {prop["HBD"]} \n Hydrogen Bond Acceptor = {prop["HBA"]}""")
