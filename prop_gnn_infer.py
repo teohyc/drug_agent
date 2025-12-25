@@ -4,7 +4,7 @@ from sklearn.preprocessing import StandardScaler
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import GINEConv, global_mean_pool
+from torch_geometric.nn import GINEConv, global_mean_pool, global_max_pool
 from torch_geometric.data import Data, Dataset, DataLoader
 from prop_gnn_model import MoleculeGINE
 import joblib
@@ -81,7 +81,7 @@ def predict():
     model = torch.load("prop_gnn.pt", weights_only=False, map_location=device)
     scaler = joblib.load("scaler_for_gnn.pkl")
 
-    test_smiles = ["NNc1nnc(Cc2ccncc2)c2ccccc12", "C[C@@H]1C[C@H]2[C@@H]3CCC4=CC(=O)C=C[C@]4(C)[C@@]3(F)[C@@H](O)C[C@]2(C)[C@@]1(C)C(=O)CO"]
+    test_smiles = ["O=C1N=C2SCCN2C(=O)C1Cc1ccc(Cl)cc1", "C[C@@H]1C[C@H]2[C@@H]3CCC4=CC(=O)C=C[C@]4(C)[C@@]3(F)[C@@H](O)C[C@]2(C)[C@@]1(C)C(=O)CO"]
 
     for s in test_smiles:
         prop = predict_properties(s, model, scaler)
