@@ -111,7 +111,7 @@ def replace_dummy_with_carbon(smiles):
     
 
 #main
-def generate_candidate_mol():
+def generate_candidate_mol(num_samples=6, max_len=20):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     idx2frag = torch.load("dict_idx2frag.pt")      # {index: fragment_string}
@@ -120,8 +120,8 @@ def generate_candidate_mol():
     model = torch.load("tree_rnn-vae.pt", weights_only=False, map_location=device)
 
     model.eval()
-    z = torch.randn(6, model.decoder.z_to_hidden.in_features, device=device)
-    sampled_indices = model.sample_from_z(z, sos_idx=None, max_len=20)  
+    z = torch.randn(num_samples, model.decoder.z_to_hidden.in_features, device=device)
+    sampled_indices = model.sample_from_z(z, sos_idx=None, max_len=max_len)  
 
     smiles_out = decode_fragments_to_smiles(sampled_indices, idx2frag)
 
@@ -131,7 +131,9 @@ def generate_candidate_mol():
         smiles_list.append(smiles)
 
     smiles_list = [replace_dummy_with_carbon(s) for s in smiles_list]
-    print(smiles_list)
+    
     mols = [Chem.MolFromSmiles(s) for s in smiles_list]
     img = Draw.MolsToGridImage(mols, molsPerRow=2, subImgSize=(600,600), legends=smiles_list)
     img.show()
+
+    return smiles_list
