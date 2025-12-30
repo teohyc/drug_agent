@@ -75,14 +75,21 @@ def predict_properties(smiles, model, scaler, device="cuda"):
     }
 
 #main
-def predict(test_smiles=["O=C1N=C2SCCN2C(=O)C1Cc1ccc(Cl)cc1", "C[C@@H]1C[C@H]2[C@@H]3CCC4=CC(=O)C=C[C@]4(C)[C@@]3(F)[C@@H](O)C[C@]2(C)[C@@]1(C)C(=O)CO"]):
+def predict_mol(test_smiles=["O=C1N=C2SCCN2C(=O)C1Cc1ccc(Cl)cc1", "C[C@@H]1C[C@H]2[C@@H]3CCC4=CC(=O)C=C[C@]4(C)[C@@]3(F)[C@@H](O)C[C@]2(C)[C@@]1(C)C(=O)CO"]):
+    '''This function takes a list of SMILES strings as input and returns a dictionary with predicted properties for each molecule via a in-house-designed Multi-Head GINE model.'''
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = torch.load("prop_gnn.pt", weights_only=False, map_location=device)
     scaler = joblib.load("scaler_for_gnn.pkl")
+    prop_rec = []
 
     for s in test_smiles:
         prop = predict_properties(s, model, scaler)
-
-        print(f"SMILES: {s}")
+        prop_rec.append(prop)
+        '''print(f"SMILES: {s}")
         print(f"""Properties Predicted: \n logP = {prop["logP"]} \n Molecular Weight = {prop["MW"]} \n Hydrogen Bond Donor = {prop["HBD"]} \n Hydrogen Bond Acceptor = {prop["HBA"]}""")
+        '''
+    ret_dict = {s: p for s, p in zip(test_smiles, prop_rec)}
+    return ret_dict
+
+predict_mol()

@@ -112,6 +112,7 @@ def replace_dummy_with_carbon(smiles):
 
 #main
 def generate_candidate_mol(num_samples=6, max_len=20):
+    '''This function generates candidate molecules using an in-house-designed Tree-RNN VAE model. It returns a list of SMILES strings representing the generated molecules as well as displaying their molecular structure.'''
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     idx2frag = torch.load("dict_idx2frag.pt")      # {index: fragment_string}
@@ -132,8 +133,10 @@ def generate_candidate_mol(num_samples=6, max_len=20):
 
     smiles_list = [replace_dummy_with_carbon(s) for s in smiles_list]
     
-    mols = [Chem.MolFromSmiles(s) for s in smiles_list]
+    '''mols = [Chem.MolFromSmiles(s) for s in smiles_list]
     img = Draw.MolsToGridImage(mols, molsPerRow=2, subImgSize=(600,600), legends=smiles_list)
-    img.show()
+    img.show()'''
 
     return smiles_list
+
+generate_candidate_mol()
