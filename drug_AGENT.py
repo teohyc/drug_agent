@@ -40,6 +40,9 @@ class DrugState(TypedDict):
     predictions: Optional[Dict[str, Dict]]
     selected: Optional[Dict[str, Dict]]
 
+    #memory
+    molecule_memory: Optional[str]
+
     # control
     iteration: int #selection loop
     recursion: int #literature loop
@@ -166,7 +169,7 @@ def literature_node(state: DrugState) -> dict:
 
     #debugging
     print(f"[Literature] recursion = {recursion}")
-    print(state["predictions"])
+    print(state["molecule_memory"])
 
     system_msg = SystemMessage(content=f"""
         "You are a biochemistry literature reviewer.
@@ -176,9 +179,9 @@ def literature_node(state: DrugState) -> dict:
         You may use the tool a few times to gather relevant information.
         Tool input argument is a search query string.
         Respond concisely and scientifically. Never hallucinate.
-        User may want you to find about previously predicted molecules so be ready to search using info below if any:
-        {state["predictions"]}
-        ONLY search about the previously predicted molecules if asked.
+        User may want you to find about previously predicted molecules so be ready to search using the info about the previously predicted or generated molecules and their specific infos below if any:
+        {state["molecule_memory"]}
+        ONLY search about the previously predicted molecules if asked by the user, if the user does not specifies previous molecule or any questions suggesting the previous molecule do not answer with any refernces or mentioning of them.
             """)
 
     if not existing_msg:
@@ -195,14 +198,14 @@ def literature_node(state: DrugState) -> dict:
 def route_from_literature(state: DrugState) -> str:
     last = state["literature_messages"][-1]
 
-    if state["recursion"] >= 20:
+    if state["recursion"] >= 11:
         return "final"
     
     return "tools" if getattr(last, "tool_calls", None) else "final"
 
 #generation node
 def generator_node(state: DrugState) -> dict:
-    smiles = generate_candidate_mol(num_samples=6, max_len=6)
+    smiles = generate_candidate_mol(num_samples=2, max_len=6)
     return {
         "generated_smiles": smiles,
         "active_smiles": smiles,
@@ -245,8 +248,18 @@ def selection_node(state: DrugState) -> dict:
     }
 
 def route_from_selection(state: DrugState) -> str:
-    return "generator" if state["iteration"] < 5 else "final"
+    return "generator" if state["iteration"] < 7 else "final"
 
+#utility function for molecule memory
+def format_molecule_memory(mols: Dict[str, Dict]) -> str:
+    lines = ["Previously discussed molecules:"]
+    for i, (smi, p) in enumerate(mols.items(), 1):
+        lines.append(
+            f"{i}. {smi}\n"
+            f"   MW={p['MW']:.2f}, logP={p['logP']:.2f}, "
+            f"HBD={p['HBD']}, HBA={p['HBA']}"
+        )
+    return "\n".join(lines)
 
 #final explainer node
 def final_explainer(state: DrugState) -> dict:
@@ -258,6 +271,24 @@ def final_explainer(state: DrugState) -> dict:
         else "No literature reviewed."
     )
 
+    #update molecule memory
+    memory_update = None
+
+    if state.get("selected"):
+        memory_update = format_molecule_memory(state["selected"])
+
+    elif state.get("predictions") and state["intent"] == "predict_only":
+        memory_update = format_molecule_memory(state["predictions"])
+
+    # append to existing memory if present
+    if memory_update:
+        if state.get("molecule_memory"):
+            molecule_memory = state["molecule_memory"] + "\n\n" + memory_update
+        else:
+            molecule_memory = memory_update
+    else:
+        molecule_memory = state.get("molecule_memory")
+
     prompt = f"""
 If the user query suggests generating or predicting molecules, talk about the predicted properties of all the respective selected molecules only and maybe some extras (not long).
 If the user query has SMILES content, in it explain the properties of those molecules with the properties predicted in the Prediction section.
@@ -266,13 +297,16 @@ Users may continue to ask about the properties of the molecules you previously g
 Always provide citations when you mention literature.
 If the user query are trivial like asking so far how may molecules have been generated or predicted, just give a short direct answer.
 If the intent is to suggest generating or predicting molecules, you do not need to use the literature to explain the properties of the molecules, just use the predicted properties only, never hallucinate.
-
+If intent is predict_only or explore, present the findings in a proper table and then explain the result.
 
 User Query:
 {state["user_query"]}
 
 Intent:
 {state["intent"]}
+
+Previously known molecules (do not mention them unless user query specifies them strongly):
+{molecule_memory or "None"}
 
 Literature:
 {literature}
@@ -286,10 +320,14 @@ Prediction:
 Explain clearly and scientifically and dont hallucinate. always put up references and citation if knowledge_only is the intent.
 Finally, ONLY answer the user's query and explain it, dont bring in unrelated information about the query all contents of response must be STRONGLY related to the user's query, do not incorporate redundant informations.
 Note: The molecule generation is performed by an in-house-designed Tree-RNN VAE model and the property prediction is performed by an in-house-designed Multi-Head GINE model.
+NEVER MAKE UP REFERENCES AND INFOS OR HALLUCINATE.
+
+FINAL WARNING: DO NOT CITE unless literature was used.
 """
 
     answer = llm.invoke(prompt).content
-    return {"final_answer": answer}
+    return {"final_answer": answer,
+            "molecule_memory": molecule_memory}
 
 ### GRAPH ###
 graph = StateGraph(DrugState)
@@ -390,6 +428,7 @@ state: DrugState = {
     "literature_messages": [],
     "predictions": None,
     "selected": None,
+    "molecule_memory": None,
     "iteration": 0,
     "recursion": 0,
     "final_answer": None,
