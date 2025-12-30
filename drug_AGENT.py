@@ -8,7 +8,7 @@ from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
 
-from langchain_core.messages import BaseMessage, SystemMessage
+from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, ToolMessage
 from langchain_core.tools import tool
 from langchain_ollama import ChatOllama
 
@@ -41,7 +41,8 @@ class DrugState(TypedDict):
     selected: Optional[Dict[str, Dict]]
 
     # control
-    iteration: int
+    iteration: int #selection loop
+    recursion: int #literature loop
 
     # output
     final_answer: Optional[str]
@@ -102,8 +103,11 @@ Format:
     try:
         response = router.invoke(prompt).content
         intent = json.loads(response)["intent"]
+
+        #debugging 
         print(f"[Router] Intent detected: {intent}")
         print(f"[Router] Extracted SMILES: {smiles}")
+
     except Exception:
         intent = "knowledge_only"
 
@@ -115,6 +119,7 @@ Format:
         "predictions": None,
         "selected": None,
         "iteration": 0,
+        "recursion": 0,
         "literature_messages": [],
     }
 
@@ -151,28 +156,49 @@ def search_literature(query: str) -> str:
     except Exception as e:
         return f"Literature search error: {e}"
 
+
 #literature node
 def literature_node(state: DrugState) -> dict:
     llm = load_tool_llm().bind_tools([search_literature])
+    existing_msg = state.get("literature_messages", [])
 
-    system = SystemMessage(content=f"""
-You are a biochemistry literature reviewer.
-Answer the user's question using academic literature.
-Search when needed, summarize when sufficient.
-Your tool is 'search_literature'.
-tool input argument is a search query string.
-""")
+    recursion = state.get("recursion", 0) + 1
 
-    response = llm.invoke(
-        [system] + state["literature_messages"]
-    )
+    #debugging
+    print(f"[Literature] recursion = {recursion}")
+    print(state["predictions"])
 
-    return {"literature_messages": [response]}
+    system_msg = SystemMessage(content=f"""
+        "You are a biochemistry literature reviewer.
+        Answer the user's question using academic literature.
+        Search when needed, summarize when sufficient.
+        Your tool is 'search_literature'.
+        You may use the tool a few times to gather relevant information.
+        Tool input argument is a search query string.
+        Respond concisely and scientifically. Never hallucinate.
+        User may want you to find about previously predicted molecules so be ready to search using info below if any:
+        {state["predictions"]}
+        ONLY search about the previously predicted molecules if asked.
+            """)
+
+    if not existing_msg:
+        response = llm.invoke([system_msg] + [HumanMessage(content=state["user_query"])])
+        return {"literature_messages": [response],
+                "recursion": recursion}
+    
+    else:
+        response = llm.invoke([system_msg] + existing_msg )
+        return {"literature_messages": [response],
+                "recursion": recursion}
 
 
 def route_from_literature(state: DrugState) -> str:
     last = state["literature_messages"][-1]
-    return "tools" if last.tool_calls else "final"
+
+    if state["recursion"] >= 20:
+        return "final"
+    
+    return "tools" if getattr(last, "tool_calls", None) else "final"
 
 #generation node
 def generator_node(state: DrugState) -> dict:
@@ -210,13 +236,16 @@ def selection_node(state: DrugState) -> dict:
     scored.sort(key=lambda x: x[2], reverse=True)
     selected = {smi: p for smi, p, _ in scored[:6]}
 
+    #debugging
+    print(f"""[Selection] iteration = {state["iteration"]}""")
+          
     return {
         "selected": selected,
         "iteration": state["iteration"] + 1,
     }
 
 def route_from_selection(state: DrugState) -> str:
-    return "generator" if state["iteration"] < 3 else "final"
+    return "generator" if state["iteration"] < 5 else "final"
 
 
 #final explainer node
@@ -230,12 +259,14 @@ def final_explainer(state: DrugState) -> dict:
     )
 
     prompt = f"""
-If the user query suggests generating or predicting molecules, talk about the properties of the selected molecules only and maybe some extras (not long).
+If the user query suggests generating or predicting molecules, talk about the predicted properties of all the respective selected molecules only and maybe some extras (not long).
 If the user query has SMILES content, in it explain the properties of those molecules with the properties predicted in the Prediction section.
-It the user query suggest literature review or general questions, focus on summarizing the literature with citations added. 
-Explain everything professionally and scientifically and NEVER HALLUCINATE.
-Users may continue to ask about the properties of the molecules you generated or predicted, so be ready to answer those questions based on the Prediction section only using the literature you have reviewed.
+It the user query suggest literature review or general questions, focus on summarizing the literature with citations added and refernces at the end, write it profesionally not too long or too short, NEVER HALLUCINATE. 
+Users may continue to ask about the properties of the molecules you previously generated or predicted, so be ready to answer those questions based on the Prediction section only using the literature you have reviewed.
 Always provide citations when you mention literature.
+If the user query are trivial like asking so far how may molecules have been generated or predicted, just give a short direct answer.
+If the intent is to suggest generating or predicting molecules, you do not need to use the literature to explain the properties of the molecules, just use the predicted properties only, never hallucinate.
+
 
 User Query:
 {state["user_query"]}
@@ -252,7 +283,8 @@ Selected Molecules:
 Prediction:
 {state.get("predictions")}
 
-Explain clearly and scientifically and dont hallucinate. Provide the final answer in a concise manner.
+Explain clearly and scientifically and dont hallucinate. always put up references and citation if knowledge_only is the intent.
+Finally, ONLY answer the user's query and explain it, dont bring in unrelated information about the query all contents of response must be STRONGLY related to the user's query, do not incorporate redundant informations.
 Note: The molecule generation is performed by an in-house-designed Tree-RNN VAE model and the property prediction is performed by an in-house-designed Multi-Head GINE model.
 """
 
@@ -264,7 +296,7 @@ graph = StateGraph(DrugState)
 
 graph.add_node("router", intent_router)
 graph.add_node("literature", literature_node)
-graph.add_node("tools", ToolNode([search_literature]))
+graph.add_node("tools", ToolNode([search_literature], messages_key="literature_messages"))
 graph.add_node("generator", generator_node)
 graph.add_node("predictor", predictor_node)
 graph.add_node("selection", selection_node)
@@ -359,13 +391,11 @@ state: DrugState = {
     "predictions": None,
     "selected": None,
     "iteration": 0,
+    "recursion": 0,
     "final_answer": None,
     }
 
 while True:
-    state["user_query"] = ""
-    state["final_answer"] = None
-    state["intent"] = "knowledge_only"
     
     user_input = input("\nUser: ")
     if user_input.lower() in {"exit", "quit"}:
