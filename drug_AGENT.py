@@ -386,6 +386,42 @@ graph.add_edge("final", END)
 
 drug_agent = graph.compile()
 
+
+#for streamlit ui
+from io import BytesIO
+import streamlit as st
+
+def render_molecule_grid(selected: Dict[str, Dict]):
+    if not selected:
+        return
+
+    mols, legends = [], []
+
+    for i, (smi, p) in enumerate(selected.items(), 1):
+        mol = Chem.MolFromSmiles(smi)
+        if mol:
+            mols.append(mol)
+            legends.append(
+                f"M{i}\nMW={p['MW']:.0f}, logP={p['logP']:.2f}, "
+                f"HBD={p['HBD']}, HBA={p['HBA']}"
+            )
+
+    img = Draw.MolsToGridImage(
+        mols,
+        molsPerRow=3,
+        subImgSize=(400, 400),
+        legends=legends,
+        useSVG=False
+    )
+
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    st.image(buf.getvalue(), caption="Selected / Predicted Molecules")
+
+    with st.expander("SMILES Mapping"):
+        for i, smi in enumerate(selected.keys(), 1):
+            st.code(f"M{i}: {smi}")
+
 '''
 from io import BytesIO 
 png = drug_agent.get_graph().draw_mermaid_png() 
@@ -395,7 +431,7 @@ img.save("drug_agent_diagram.png")
 '''
 
 #visualise 
-def display_molecule_grid(state: DrugState):
+'''def display_molecule_grid(state: DrugState):
     selected = state.get("selected")
     if not selected:
         return
@@ -417,7 +453,7 @@ def display_molecule_grid(state: DrugState):
 
     print("\nSMILES Mapping:")
     for i, smi in enumerate(selected.keys(), 1):
-        print(f"M{i}: {smi}")
+        print(f"M{i}: {smi}")'''
 
 state: DrugState = {
     "user_query": "",
@@ -433,7 +469,7 @@ state: DrugState = {
     "recursion": 0,
     "final_answer": None,
     }
-
+'''
 while True:
     
     user_input = input("\nUser: ")
@@ -447,5 +483,5 @@ while True:
     print(state["final_answer"])
 
     if state["selected"]:
-        display_molecule_grid(state)
+        display_molecule_grid(state)'''
         

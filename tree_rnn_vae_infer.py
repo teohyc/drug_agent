@@ -139,4 +139,3 @@ def generate_candidate_mol(num_samples=6, max_len=20):
 
     return smiles_list
 
-generate_candidate_mol()
