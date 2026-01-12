@@ -130,9 +130,9 @@ if user_input:
 
 # ---------------------------
 # Persistent Molecule Display
-# ---------------------------
+# --------------------------- 
 if st.session_state.display_molecules:
     st.divider()
     st.subheader("🧬 Molecular Structures")
     render_molecule_grid(st.session_state.display_molecules)
-
+    
