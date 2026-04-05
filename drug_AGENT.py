@@ -205,7 +205,7 @@ def route_from_literature(state: DrugState) -> str:
 
 #generation node
 def generator_node(state: DrugState) -> dict:
-    smiles = generate_candidate_mol(num_samples=2, max_len=6)
+    smiles = generate_candidate_mol(num_samples=4, max_len=10)
     return {
         "generated_smiles": smiles,
         "active_smiles": smiles,

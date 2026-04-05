@@ -7,3 +7,5 @@
 /prop_gnn.pt
 /scaler_for_gnn.pkl
 /.github
+/hf_upload_gnn
+/hf_upload_rnn_vae
