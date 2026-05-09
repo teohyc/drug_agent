@@ -1,4 +1,4 @@
-DEMO VIDEO: https://youtu.be/4b9fYZC5avE
+DEMO VIDEO: https://youtu.be/_EBMk3ppN0E
 Drug generator model: https://huggingface.co/teohyc/DeNovoDrugGenerator-RNN-VAE
 Molecule property predictor model: https://huggingface.co/teohyc/Molecular_Property_Prediction-Multihead_GINE
 
