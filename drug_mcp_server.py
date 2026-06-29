@@ -45,19 +45,15 @@ def extract_smiles(text: str) -> List[str]:
 
     return smiles_list
 '''
-# ----------------------------
-# Molecule Generator (Tree-RNN VAE)
-# ----------------------------
 
+# Molecule Generator (Tree-RNN VAE)
 @mcp.tool()
 def generate_molecules(num_samples: int = 2, max_len: int = 6) -> List[str]:
     """Generate candidate molecules using Tree-RNN VAE."""
     return generate_candidate_mol(num_samples=num_samples, max_len=max_len)
 
-# ----------------------------
-# Property Predictor (GINE)
-# ----------------------------
 
+# Property Predictor (GINE)
 @mcp.tool()
 def predict_properties(smiles: List[str]) -> Dict[str, Dict]:
     """Predict molecular properties using Multi-Head GINE."""
@@ -65,10 +61,8 @@ def predict_properties(smiles: List[str]) -> Dict[str, Dict]:
         return {}
     return predict_mol(smiles)
 
-# ----------------------------
-# Semantic Scholar Search
-# ----------------------------
 
+# Semantic Scholar Search
 @mcp.tool()
 def search_literature(query: str) -> str:
     """Search drug-related academic literature using Semantic Scholar."""
@@ -101,10 +95,7 @@ def search_literature(query: str) -> str:
     except Exception as e:
         return f"Literature search error: {e}"
 
-# ----------------------------
 # Molecule Memory Formatter
-# ----------------------------
-
 @mcp.tool()
 def format_molecule_memory(mols: Dict[str, Dict]) -> str:
     """Format molecules and properties into readable memory."""
@@ -120,10 +111,7 @@ def format_molecule_memory(mols: Dict[str, Dict]) -> str:
         )
     return "\n".join(lines)
 
-# ----------------------------
 # Molecule Image Renderer
-# ----------------------------
-
 @mcp.tool()
 def render_molecule_images(molecules: Dict[str, Dict]) -> List[str]:
     """Render RDKit grid image of molecules. Returns base64 PNG."""
@@ -156,9 +144,7 @@ def render_molecule_images(molecules: Dict[str, Dict]) -> List[str]:
 
     return [base64.b64encode(buf.read()).decode("utf-8")]
 
-# ----------------------------
-# Run MCP Server
-# ----------------------------
 
+# Run MCP Server
 if __name__ == "__main__":
     mcp.run(transport="stdio")
